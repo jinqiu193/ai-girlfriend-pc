@@ -1,0 +1,61 @@
+# === 敏感文件 / 密钥 ===
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# === 数据库 / 用户数据 ===
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# === 工具 / 缓存 / 内部数据 ===
+.codeartsdoer/
+.arts/
+.cache/
+.llama_pid
+.server_pid
+NUL
+
+# === 开源参考目录（别人的项目，不放进本仓库）===
+开源参考/
+
+# === 上传的用户图片 ===
+uploads/
+static/uploads/
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === 操作系统 ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === 日志 ===
+*.log
+logs/
