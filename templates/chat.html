@@ -1,0 +1,741 @@
+{% extends "base.html" %}
+{% block title %}消息 · AI Girlfriend{% endblock %}
+
+{% block content %}
+<div class="app-shell">
+  <!-- Far-left vertical nav rail (icon-only) -->
+  <nav class="nav-rail" aria-label="主导航">
+    <div class="rail-top">
+      <span class="rail-logo" title="AI Girlfriend"><span data-i="heart" data-s="22"></span></span>
+    </div>
+    <ul class="rail-icons">
+      <li class="active" title="消息"><span data-i="chat" data-s="20"></span></li>
+      <li id="rail-contacts" title="联系人"><span data-i="contact" data-s="20"></span></li>
+      <li id="rail-stories" title="故事"><span data-i="book" data-s="20"></span></li>
+      <li id="rail-groups" title="群聊"><span data-i="users" data-s="20"></span></li>
+      <li id="rail-moments" title="动态"><span data-i="pin" data-s="20"></span></li>
+      <li id="rail-settings" title="设置"><span data-i="cog" data-s="20"></span></li>
+    </ul>
+    <div class="rail-bottom">
+      <span class="rail-avatar" title="{{ user }}">{{ (user[0] if user else '?')|upper }}</span>
+    </div>
+  </nav>
+
+  <!-- Middle column: chat list -->
+  <aside class="chat-list-pane" aria-label="对话列表">
+    <header class="chat-list-head">
+      <div class="search-wrap">
+        <span class="search-icon"><span data-i="search" data-s="16"></span></span>
+        <input id="chat-search" type="search" placeholder="搜索" />
+      </div>
+      <button id="btn-import" class="plus-btn" title="导入角色卡"><span data-i="plus" data-s="18"></span></button>
+    </header>
+    <ul id="char-list" class="char-list" role="listbox"></ul>
+    <div id="contacts-grid" class="contacts-grid" hidden></div>
+    <input id="import-input" type="file" accept=".json,.png" hidden />
+    <input id="import-chat-input" type="file" accept=".json" hidden />
+  </aside>
+
+  <!-- Right column: chat pane -->
+  <section class="chat-pane" aria-label="聊天窗口">
+    <header class="chat-pane-head">
+      <button id="btn-back-list" class="head-btn btn-back-list" title="返回会话列表" aria-label="返回会话列表"><span data-i="arrow-left" data-s="18"></span></button>
+      <img id="active-avatar" class="pane-avatar" src="/static/avatar-placeholder.png" alt="" />
+      <div class="pane-meta">
+        <div class="pane-name-row">
+          <span id="active-name" class="pane-name">—</span>
+          <span class="pane-badge">AI</span>
+        </div>
+      <div id="active-sub" class="pane-sub">本地 · bge-m3 · 长期记忆已启用</div>
+    </div>
+    <span class="pane-spacer"></span>
+    <button id="btn-import-chat-head" class="head-btn" title="导入聊天记录"><span data-i="upload" data-s="18"></span></button>
+
+    <button id="btn-export-chat" class="head-btn" title="导出当前角色的全部对话 + 角色卡(JSON)"><span data-i="download" data-s="18"></span></button>
+      <button id="btn-char-detail" class="head-btn" title="查看详情"><span data-i="info" data-s="18"></span></button>
+      <button class="head-btn" title="更多" aria-label="更多"><span data-i="ellipsis" data-s="18"></span></button>
+    </header>
+
+    <!-- Collapsible recalls tray (memory) — hidden by default, toggled from nav rail -->
+    <div id="recalls-tray" class="recalls-tray" hidden>
+      <div class="recalls-tray-head">
+        <span class="title"><span data-i="cloud" data-s="16"></span> 她想起的事</span>
+        <button class="head-btn" data-toggle="recalls-tray" title="收起"><span data-i="x" data-s="18"></span></button>
+      </div>
+      <div id="recalls" class="recalls">
+        <div class="empty">选择角色开始聊天后,她想起的事情会出现在这里。</div>
+      </div>
+      <div id="session-info" class="session-info empty">尚未开始</div>
+    </div>
+
+    <div id="log" class="log" aria-live="polite"></div>
+
+    <div id="preview" class="preview" hidden></div>
+
+    <form id="composer" class="composer" autocomplete="off">
+      <div class="composer-toolbar">
+        <button type="button" class="tool-btn" id="btn-tool-emoji" title="表情"><span data-i="smile" data-s="18"></span></button>
+        <label class="tool-btn" title="发图"><span data-i="image" data-s="18"></span>
+          <input id="img-input" type="file" accept="image/*" multiple hidden />
+        </label>
+        <button type="button" class="tool-btn" title="截图"><span data-i="scissors" data-s="18"></span></button>
+        <button type="button" class="tool-btn" title="文件"><span data-i="folder" data-s="18"></span></button>
+        <button type="button" class="tool-btn" title="语音"><span data-i="mic" data-s="18"></span></button>
+        <span class="tool-spacer"></span>
+        <button type="button" class="tool-btn" title="历史记录"><span data-i="history" data-s="18"></span></button>
+      </div>
+      <div class="composer-input-row">
+        <textarea id="msg" rows="1" placeholder="说点什么吧…（Enter 发送 · Shift+Enter 换行）"></textarea>
+<button type="submit" class="send-btn" title="发送 (Enter)">发送<span class="send-caret"><span data-i="caret" data-s="14"></span></span></button>
+    </div>
+  </form>
+</section>
+
+<!-- Right column: character detail panel (visible only in contacts-mode) -->
+<aside id="char-detail-panel" class="char-detail-panel" hidden>
+  <header class="cdp-header">
+    <button class="head-btn" id="cdp-back" title="返回列表"><span data-i="arrow-left" data-s="16"></span></button>
+    <div class="cdp-title">角色详情</div>
+    <div class="cdp-actions-top">
+      <button class="head-btn" id="cdp-export" title="导出角色（设定+自拍池+记忆）"><span data-i="download" data-s="16"></span></button>
+      <button class="head-btn danger" id="cdp-delete" title="删除角色"><span data-i="trash" data-s="16"></span></button>
+    </div>
+  </header>
+
+  <nav class="cdp-tabs" role="tablist">
+    <button type="button" class="cdp-tab active" data-cdp-tab="settings" role="tab" aria-selected="true">对话设定</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="memory" role="tab" aria-selected="false">长期记忆</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="pool" role="tab" aria-selected="false">AI 自拍池</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="scenes" role="tab" aria-selected="false">场景</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="rules" role="tab" aria-selected="false">提示词库</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="milestones" role="tab" aria-selected="false">重要记忆</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="news" role="tab" aria-selected="false">每日新闻</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="moments" role="tab" aria-selected="false">她的动态</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="history" role="tab" aria-selected="false">聊天记录</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="evolution" role="tab" aria-selected="false">性格演化</button>
+    <button type="button" class="cdp-tab" data-cdp-tab="runtime" role="tab" aria-selected="false">运行状态</button>
+  </nav>
+
+  <div class="cdp-views">
+    <form id="cdp-form" autocomplete="off" onsubmit="return false">
+      <section class="cdp-section" data-cdp-view="settings">
+        <div class="cdp-avatar-row">
+          <img id="cdp-avatar-preview" alt="" />
+          <label class="cdp-avatar-pick">
+            <input id="cdp-avatar-input" type="file" accept="image/*" />
+            <span>更换头像</span>
+          </label>
+        </div>
+
+        <div class="cdp-grid-2">
+          <label>名字<input name="name" required maxlength="80" /></label>
+          <label>昵称<input name="nickname" maxlength="80" /></label>
+        </div>
+
+        <label data-span="2">和你的关系
+          <select id="cdp-relationship">
+            <option value="陌生人">陌生人</option>
+            <option value="一面之缘">一面之缘</option>
+            <option value="朋友">朋友</option>
+            <option value="工作关系">工作关系</option>
+            <option value="男女朋友">男女朋友</option>
+            <option value="初恋">初恋</option>
+            <option value="热恋">热恋</option>
+            <option value="平淡期">平淡期</option>
+            <option value="分手">分手</option>
+            <option value="复合">复合</option>
+            <option value="婚姻">婚姻</option>
+            <option value="离婚">离婚</option>
+            <option value="反目成仇">反目成仇</option>
+          </select>
+        </label>
+
+        <h4 class="cdp-subhead">会注入到 system 提示词的字段</h4>
+        <label>基本信息<textarea name="basic_info" rows="3" maxlength="4000" placeholder="年龄、职业、外貌、生活状态等概要"></textarea></label>
+        <label>性格<textarea name="personality" rows="2" maxlength="2000" placeholder="性格特质"></textarea></label>
+        <label>恋爱观<textarea name="love_values" rows="2" maxlength="2000" placeholder="对感情/关系的看法和态度"></textarea></label>
+        <label>身份背景<textarea name="background" rows="2" maxlength="2000" placeholder="身世、经历、家庭故事"></textarea></label>
+        <label>喜好习惯<textarea name="habits" rows="2" maxlength="2000" placeholder="爱好、日常习惯、偏好"></textarea></label>
+        <label>说话风格<textarea name="speech_style" rows="2" maxlength="2000" placeholder="语气、口癖、表达方式"></textarea></label>
+        <label>场景<textarea name="scenario" rows="2" maxlength="2000" placeholder="默认场景描述"></textarea></label>
+        <label data-span="2">示例对话 (mes_example)<textarea name="mes_example" rows="4"></textarea></label>
+        <h4 class="cdp-subhead">高级（自由补充）</h4>
+        <label data-span="2">系统提示词 (system_prompt)<textarea name="system_prompt" rows="3"></textarea></label>
+        <label data-span="2">后置行为锚 (post_history_instructions)<textarea name="post_history_instructions" rows="2"></textarea></label>
+
+        <details class="cdp-advanced-rules">
+          <summary>系统规则（行为守则 / 昼夜节律 / 情绪检测）</summary>
+          <p class="cdp-rules-hint">以下留空则使用系统默认值。可用 {{char}} 代表角色名。</p>
+          <label data-span="2">行为守则 + 身份边界 (behaviour_rules)<textarea name="behaviour_rules" rows="6" maxlength="4000" placeholder="留空使用默认行为守则和身份边界规则"></textarea></label>
+
+          <h5 class="cdp-subhead-sm">昼夜节律（各时段状态描述）</h5>
+          <label>深夜 (22:00-6:00)<textarea name="circ_late_night" rows="2" placeholder="留空使用默认"></textarea></label>
+          <label>清晨 (6:00-9:00)<textarea name="circ_early_morning" rows="2" placeholder="留空使用默认"></textarea></label>
+          <label>上午 (9:00-12:00)<textarea name="circ_morning" rows="2" placeholder="留空使用默认"></textarea></label>
+          <label>中午 (12:00-14:00)<textarea name="circ_noon" rows="2" placeholder="留空使用默认"></textarea></label>
+          <label>下午 (14:00-18:00)<textarea name="circ_afternoon" rows="2" placeholder="留空使用默认"></textarea></label>
+          <label>晚上 (18:00-22:00)<textarea name="circ_evening" rows="2" placeholder="留空使用默认"></textarea></label>
+
+          <h5 class="cdp-subhead-sm">用户情绪检测（关键词 + 回复引导）</h5>
+          <div class="cdp-emotion-grid">
+            <label>难过 — 关键词(逗号分隔)<input name="emo_sad_words" placeholder="留空使用默认"></label>
+            <label data-span="2">难过 — 回复引导<textarea name="emo_sad_prompt" rows="2" placeholder="留空使用默认"></textarea></label>
+            <label>开心 — 关键词(逗号分隔)<input name="emo_happy_words" placeholder="留空使用默认"></label>
+            <label data-span="2">开心 — 回复引导<textarea name="emo_happy_prompt" rows="2" placeholder="留空使用默认"></textarea></label>
+            <label>生气 — 关键词(逗号分隔)<input name="emo_angry_words" placeholder="留空使用默认"></label>
+            <label data-span="2">生气 — 回复引导<textarea name="emo_angry_prompt" rows="2" placeholder="留空使用默认"></textarea></label>
+            <label>焦虑 — 关键词(逗号分隔)<input name="emo_anxious_words" placeholder="留空使用默认"></label>
+            <label data-span="2">焦虑 — 回复引导<textarea name="emo_anxious_prompt" rows="2" placeholder="留空使用默认"></textarea></label>
+          </div>
+        </details>
+
+        <h4 class="cdp-subhead">开场白</h4>
+        <label>开场白 (first_mes)<textarea name="first_mes" rows="3" maxlength="4000"></textarea></label>
+        <label>备选开场白(逗号分隔,alternate_greetings)<textarea name="alternate_greetings" rows="2"></textarea></label>
+
+
+        <h4 class="cdp-subhead">对话统计</h4>
+        <dl class="cdp-stats">
+          <dt>消息总数</dt><dd id="cdp-stat-total">—</dd>
+          <dt>来自你</dt><dd id="cdp-stat-user">—</dd>
+          <dt>来自她</dt><dd id="cdp-stat-bot">—</dd>
+          <dt>总字数</dt><dd id="cdp-stat-chars">—</dd>
+          <dt>首次</dt><dd id="cdp-stat-first">—</dd>
+          <dt>最近</dt><dd id="cdp-stat-last">—</dd>
+        </dl>
+      </section>
+    </form>
+
+    <section class="cdp-section" data-cdp-view="memory" hidden>
+      <h4>长期记忆</h4>
+      <div id="cdp-memories" class="cdp-memories">
+        <div class="empty">加载中…</div>
+      </div>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="pool" hidden>
+      <h4>AI 自拍池</h4>
+      <p class="cdp-hint">AI 在合适的场景下会从这些照片里挑一张发出来。点「加图」选一批,可多次点击追加,点「上传全部」一并提交。上传后会自动生成场景描述,需要几秒。</p>
+      <div class="cdp-pool-upload">
+        <input type="file" id="cdp-pool-file" accept="image/*" multiple hidden />
+        <div class="cdp-pool-controls">
+          <button type="button" id="cdp-pool-add-btn" class="primary">➕ 加图</button>
+          <button type="button" id="cdp-pool-upload-btn" disabled>📤 上传全部 (<span id="cdp-pool-queue-count">0</span>)</button>
+          <button type="button" id="cdp-pool-clear-btn" disabled>清空</button>
+          <button type="button" id="cdp-pool-delete-all-btn" class="danger-btn" title="删除已入库的全部照片">🗑 删除全部</button>
+          <button type="button" id="cdp-pool-recaption-all-btn" class="primary" title="用 LM 重新生成所有图片的场景描述">🔄 重新描述</button>
+          <span id="cdp-pool-upload-status" class="cdp-pool-status"></span>
+        </div>
+        <ul id="cdp-pool-queue" class="cdp-pool-grid" hidden>
+          <li class="empty">还没有待上传的图片</li>
+        </ul>
+      </div>
+      <ul id="cdp-pool-list" class="cdp-pool-grid">
+        <li class="empty">还没有照片,先上传一张吧。</li>
+      </ul>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="scenes" hidden>
+      <h4>自定义场景</h4>
+      <p class="cdp-hint">为角色创建多个场景（如「深夜卧室」「咖啡馆约会」），激活后替代内置时间场景注入提示词。留空则使用内置时间场景。</p>
+      <div class="cdp-scene-active">
+        <label>当前激活场景
+          <select id="cdp-scene-active-select">
+            <option value="">（使用内置时间场景）</option>
+          </select>
+        </label>
+      </div>
+      <div class="cdp-scene-add">
+        <input type="text" id="cdp-scene-new-name" placeholder="场景名称（如：深夜卧室）" maxlength="80" />
+        <textarea id="cdp-scene-new-desc" placeholder="场景描述（会注入到 system 提示词）" rows="3" maxlength="2000"></textarea>
+        <button type="button" id="cdp-scene-add-btn" class="primary">➕ 新增场景</button>
+      </div>
+      <ul id="cdp-scene-list" class="cdp-scene-list">
+        <li class="empty">还没有自定义场景</li>
+      </ul>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="rules" hidden>
+      <h4>动态提示词库</h4>
+      <p class="cdp-hint">为角色创建条件匹配的提示词规则。系统根据当前对话的时空、情绪、场景、关系等上下文，动态匹配并注入符合条件的规则内容。</p>
+      <button type="button" id="cdp-rule-preseed-btn" class="cdp-rule-preseed">⚡ 一键预置昼夜节律规则</button>
+      <div class="cdp-rule-add">
+        <input type="text" id="cdp-rule-new-name" placeholder="规则名称（如：深夜温柔模式）" maxlength="80" />
+        <textarea id="cdp-rule-new-content" placeholder="提示词内容（匹配条件满足时注入到 system prompt）" rows="3" maxlength="4000"></textarea>
+        <details class="cdp-rule-conditions">
+          <summary>匹配条件（留空 = 不限制）</summary>
+          <div class="cdp-rule-cond-grid">
+            <label>时间范围起 (HH:MM)<input type="text" id="cdp-rule-new-ts" placeholder="如 22:00" /></label>
+            <label>时间范围止 (HH:MM)<input type="text" id="cdp-rule-new-te" placeholder="如 06:00" /></label>
+            <label>用户情绪 (逗号分隔)<input type="text" id="cdp-rule-new-emo" placeholder="sad,happy,angry,anxious" /></label>
+            <label>关系类型 (逗号分隔)<input type="text" id="cdp-rule-new-rel" placeholder="热恋,朋友" /></label>
+            <label>亲密度下限 (0-100)<input type="number" id="cdp-rule-new-imin" min="0" max="100" placeholder="0" /></label>
+            <label>亲密度上限 (0-100)<input type="number" id="cdp-rule-new-imax" min="0" max="100" placeholder="100" /></label>
+            <label data-span="2">关键词 (逗号分隔，用户消息包含任一即匹配)<input type="text" id="cdp-rule-new-kw" placeholder="晚安,睡觉,累" /></label>
+          </div>
+        </details>
+        <button type="button" id="cdp-rule-add-btn" class="primary">➕ 新增规则</button>
+      </div>
+      <ul id="cdp-rule-list" class="cdp-rule-list">
+        <li class="empty">还没有提示词规则</li>
+      </ul>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="milestones" hidden>
+      <h4>重要记忆</h4>
+      <p class="cdp-hint">你们之间的重要"第一次"时刻，自动记录，永久保存。</p>
+      <div id="cdp-milestones" class="cdp-milestones">
+        <div class="empty">加载中…</div>
+      </div>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="news" hidden>
+      <h4>每日新闻</h4>
+      <p class="cdp-hint">她每天会看十条重要新闻，总结后记入长期记忆，聊天时可以自然引用时事。</p>
+      <div id="cdp-news" class="cdp-news">
+        <div class="empty">加载中…</div>
+      </div>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="moments" hidden>
+      <h4>她的动态</h4>
+      <p class="cdp-hint">她会时不时发一条生活动态，就像朋友圈一样。</p>
+      <div id="cdp-moments" class="cdp-moments">
+        <div class="empty">加载中…</div>
+      </div>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="history" hidden>
+      <div class="cdp-history-toolbar">
+        <button type="button" id="cdp-hist-select-all" class="cdp-hist-btn">全选</button>
+        <button type="button" id="cdp-hist-delete-selected" class="cdp-hist-btn danger" disabled>删除所选</button>
+        <span id="cdp-hist-selected-count"></span>
+      </div>
+      <div id="cdp-history-list" class="cdp-history-list">
+        <div class="empty">加载中…</div>
+      </div>
+      <div class="cdp-history-pager">
+        <button type="button" id="cdp-hist-prev" class="cdp-hist-btn" disabled>上一页</button>
+        <span id="cdp-hist-page-info"></span>
+        <button type="button" id="cdp-hist-next" class="cdp-hist-btn" disabled>下一页</button>
+      </div>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="evolution" hidden>
+      <h4>性格演化</h4>
+      <p class="cdp-hint">角色在对话中自然成长，性格会随互动微妙变化。</p>
+      <div id="cdp-evolutions" class="cdp-moments">
+        <div class="empty">加载中…</div>
+      </div>
+    </section>
+
+    <section class="cdp-section" data-cdp-view="runtime" hidden>
+      <h4>运行状态</h4>
+      <p class="cdp-hint">以下状态在对话中动态生成，可手动查看和修改。修改后立即生效。</p>
+
+      <h5 class="cdp-subhead-sm">亲密度（由消息数计算，只读）</h5>
+      <dl class="cdp-stats">
+        <dt>亲密度</dt><dd id="rt-intimacy">—</dd>
+        <dt>用户消息数</dt><dd id="rt-msg-count">—</dd>
+      </dl>
+
+      <h5 class="cdp-subhead-sm">心情</h5>
+      <label data-span="2">心情描述<textarea id="rt-mood-desc" rows="2" placeholder="用'你'开头描述当前心情"></textarea></label>
+      <div class="cdp-mood-grid">
+        <label>开心 <input type="number" id="rt-mood-happy" min="0" max="100" /></label>
+        <label>想念 <input type="number" id="rt-mood-miss" min="0" max="100" /></label>
+        <label>吃醋 <input type="number" id="rt-mood-jealous" min="0" max="100" /></label>
+        <label>生气 <input type="number" id="rt-mood-annoyed" min="0" max="100" /></label>
+        <label>兴奋 <input type="number" id="rt-mood-excited" min="0" max="100" /></label>
+        <label>无聊 <input type="number" id="rt-mood-bored" min="0" max="100" /></label>
+        <label>性欲 <input type="number" id="rt-mood-libido" min="0" max="100" /></label>
+      </div>
+      <button type="button" id="rt-mood-save" class="rt-save-btn">保存心情</button>
+
+      <h5 class="cdp-subhead-sm">时空状态</h5>
+      <label data-span="2">时空描述（位置、姿势、动作）<textarea id="rt-spatial-desc" rows="3" placeholder="如：双方呆在女生家里，在床边调情"></textarea></label>
+      <label data-span="2">衣着描述<textarea id="rt-spatial-outfit" rows="2" placeholder="如：穿着黑色丝质睡裙，光着脚"></textarea></label>
+      <button type="button" id="rt-spatial-save" class="rt-save-btn">保存时空状态</button>
+    </section>
+  </div>
+
+  <footer class="cdp-footer">
+    <div id="cdp-form-error" class="cdp-error" hidden></div>
+    <div class="cdp-footer-row">
+      <button type="button" id="cdp-cancel">取消</button>
+      <button type="button" id="cdp-save" class="primary">保存</button>
+      <button type="button" id="cdp-chat" class="primary">去聊天 →</button>
+    </div>
+  </footer>
+</aside>
+
+<aside id="moments-view" class="moments-view" hidden>
+  <header class="mv-header">
+    <div class="mv-title">好友动态</div>
+  </header>
+  <div class="mv-composer">
+    <textarea id="mv-input" placeholder="发一条动态…" rows="2" maxlength="500"></textarea>
+    <button type="button" id="mv-post-btn">发布</button>
+  </div>
+  <div id="moments-timeline" class="moments-timeline">
+    <div class="empty">加载中…</div>
+  </div>
+</aside>
+
+<aside id="groups-view" class="groups-view" hidden>
+  <header class="gv-header">
+    <div class="gv-title">群聊</div>
+    <button type="button" id="gv-create-btn" class="gv-create-btn">创建群聊</button>
+  </header>
+  <div id="groups-list" class="groups-list">
+    <div class="empty">加载中…</div>
+  </div>
+</aside>
+
+<aside id="group-chat-view" class="group-chat-view" hidden>
+  <header class="gc-header">
+    <button class="head-btn" id="gc-back" title="返回群列表"><span data-i="arrow-left" data-s="18"></span></button>
+    <div id="gc-name" class="gc-name">群聊</div>
+    <div id="gc-members" class="gc-members"></div>
+  </header>
+  <div id="gc-log" class="gc-log" aria-live="polite"></div>
+  <form id="gc-composer" class="gc-composer" autocomplete="off">
+    <textarea id="gc-msg" rows="1" placeholder="说点什么吧…（Enter 发送）"></textarea>
+    <button type="submit" class="gc-send-btn">发送</button>
+  </form>
+</aside>
+
+<aside id="stories-view" class="stories-view" hidden>
+  <header class="sv2-header">
+    <div class="sv2-title">故事</div>
+    <button type="button" id="sv2-create-btn" class="sv2-create-btn">创建故事</button>
+  </header>
+  <div class="sv2-filter-bar">
+    <input id="sv2-search" type="search" placeholder="搜索故事…" />
+    <select id="sv2-genre-filter">
+      <option value="">全部类型</option>
+      <option value="奇幻">奇幻</option>
+      <option value="悬疑">悬疑</option>
+      <option value="恋爱">恋爱</option>
+      <option value="冒险">冒险</option>
+      <option value="科幻">科幻</option>
+      <option value="恐怖">恐怖</option>
+      <option value="日常">日常</option>
+    </select>
+    <select id="sv2-status-filter">
+      <option value="">全部状态</option>
+      <option value="ongoing">进行中</option>
+      <option value="completed">已完成</option>
+      <option value="abandoned">已放弃</option>
+    </select>
+  </div>
+  <div id="stories-list" class="stories-list">
+    <div class="empty">加载中…</div>
+  </div>
+</aside>
+
+<aside id="story-detail-panel" class="story-detail-panel" hidden>
+  <header class="sdp-header">
+    <button class="head-btn" id="sdp-back" title="返回故事列表"><span data-i="arrow-left" data-s="16"></span></button>
+    <div class="sdp-title">故事详情</div>
+    <div class="sdp-actions-top">
+      <button class="head-btn danger" id="sdp-delete" title="删除故事"><span data-i="trash" data-s="16"></span></button>
+    </div>
+  </header>
+
+  <nav class="sdp-tabs" role="tablist">
+    <button type="button" class="sdp-tab active" data-sdp-tab="settings" role="tab" aria-selected="true">故事设定</button>
+    <button type="button" class="sdp-tab" data-sdp-tab="npc" role="tab" aria-selected="false">NPC角色</button>
+    <button type="button" class="sdp-tab" data-sdp-tab="memory" role="tab" aria-selected="false">故事记忆</button>
+    <button type="button" class="sdp-tab" data-sdp-tab="chapters" role="tab" aria-selected="false">情景触发</button>
+    <button type="button" class="sdp-tab" data-sdp-tab="pool" role="tab" aria-selected="false">照片池</button>
+    <button type="button" class="sdp-tab" data-sdp-tab="history" role="tab" aria-selected="false">聊天记录</button>
+    <button type="button" class="sdp-tab" data-sdp-tab="advanced" role="tab" aria-selected="false">高级设置</button>
+  </nav>
+
+  <div class="sdp-views">
+    <form id="sdp-form" autocomplete="off" onsubmit="return false">
+      <section class="sdp-section" data-sdp-view="settings">
+        <div class="sdp-cover-row">
+          <img id="sdp-cover-preview" class="sdp-cover-preview" src="" alt="" hidden />
+          <div class="sdp-cover-controls">
+            <input type="file" id="sdp-cover-file" accept="image/*" hidden />
+            <button type="button" id="sdp-cover-upload-btn">上传封面</button>
+            <button type="button" id="sdp-cover-remove-btn" hidden>移除封面</button>
+          </div>
+        </div>
+        <div class="cdp-grid-2">
+          <label>故事标题<input name="title" required maxlength="200" /></label>
+          <label>故事类型<input name="genre" maxlength="100" placeholder="如：奇幻、悬疑、恋爱" /></label>
+        </div>
+        <label>故事状态
+          <select id="sdp-status-select">
+            <option value="ongoing">进行中</option>
+            <option value="completed">已完成</option>
+            <option value="abandoned">已放弃</option>
+          </select>
+        </label>
+        <label data-span="2">世界观设定<textarea name="world_setting" rows="4" maxlength="4000" placeholder="故事发生的世界背景、规则、设定"></textarea></label>
+        <label data-span="2">剧情概要<textarea name="plot_summary" rows="3" maxlength="4000" placeholder="故事的主要剧情线索"></textarea></label>
+        <label data-span="2">用户扮演的角色<textarea name="user_role" rows="2" maxlength="2000" placeholder="用户在故事中扮演的角色，如：一名刚入职的新员工"></textarea></label>
+        <label data-span="2">AI 扮演的角色<textarea name="ai_role" rows="2" maxlength="2000" placeholder="AI 在故事中扮演的角色，如：旁白和所有 NPC（老板、同事等）"></textarea></label>
+        <label data-span="2">开场白<textarea name="opening" rows="3" maxlength="4000" placeholder="故事的开场描述"></textarea></label>
+        <label data-span="2">故事规则<textarea name="story_rules" rows="3" maxlength="4000" placeholder="故事推进的规则和限制"></textarea></label>
+
+        <h4 class="cdp-subhead">生成时初始状态</h4>
+        <label data-span="2">时空状态(生成时)<textarea name="initial_spatial" rows="2" maxlength="2000" placeholder="故事开始时的时空状态，如：清晨，家中客厅，阳光透过窗帘洒入"></textarea></label>
+        <label data-span="2">心情(生成时)<textarea name="initial_mood" rows="2" maxlength="2000" placeholder="故事开始时各角色的心情，如：主角刚起床，略带惺忪与期待"></textarea></label>
+        <label>亲密度(生成时)<input type="number" name="initial_intimacy" min="0" max="100" step="1" placeholder="0-100" /></label>
+
+        <h4 class="cdp-subhead">对话统计</h4>
+        <dl class="cdp-stats">
+          <dt>消息总数</dt><dd id="sdp-stat-total">—</dd>
+          <dt>首次</dt><dd id="sdp-stat-first">—</dd>
+          <dt>最近</dt><dd id="sdp-stat-last">—</dd>
+        </dl>
+      </section>
+
+
+    <section class="sdp-section" data-sdp-view="npc" hidden>
+      <h4 class="cdp-subhead">NPC 角色</h4>
+      <div id="sdp-npc-list" class="sdp-npc-list">
+        <div class="sdp-npc-empty">还没有 NPC，点击下方添加</div>
+      </div>
+      <button type="button" id="sdp-npc-add-btn" class="sdp-npc-add-btn">添加 NPC</button>
+    </section>
+
+    <section class="sdp-section" data-sdp-view="memory" hidden>
+      <h4 class="cdp-subhead">故事记忆</h4>
+      <p class="cdp-hint">故事中已发生的关键事件和情节，AI 会参考这些记忆保持剧情连贯。</p>
+      <div id="sdp-memory-list" class="sdp-memory-list">
+        <div class="empty">还没有故事记忆</div>
+      </div>
+      <div class="sdp-memory-add">
+        <select id="sdp-memory-type">
+          <option value="plot">剧情发展</option>
+          <option value="choice">用户选择</option>
+          <option value="npc_state">NPC状态</option>
+          <option value="world_change">世界变化</option>
+          <option value="user_action">用户行动</option>
+        </select>
+        <input id="sdp-memory-content" type="text" placeholder="记忆内容" maxlength="500" />
+        <select id="sdp-memory-importance">
+          <option value="5">普通</option>
+          <option value="8">重要</option>
+          <option value="10">关键</option>
+        </select>
+        <button type="button" id="sdp-memory-add-btn" class="primary">添加</button>
+      </div>
+    </section>
+
+    <section class="sdp-section" data-sdp-view="chapters" hidden>
+      <h4 class="cdp-subhead">情景触发</h4>
+      <p class="cdp-hint">设定情景条件和触发文本。用户对话时通过语义匹配自动触发，注入设定文本控制剧情走向。</p>
+      <div id="sdp-trigger-list" class="sdp-memory-list">
+        <div class="empty">还没有情景触发器</div>
+      </div>
+      <div class="sdp-memory-add">
+        <input id="sdp-trigger-condition" type="text" placeholder="触发条件（如：用户进入黑暗森林）" maxlength="500" />
+        <input id="sdp-trigger-text" type="text" placeholder="触发文本（如：森林深处有一只受伤的精灵）" maxlength="500" />
+        <button type="button" id="sdp-trigger-add-btn" class="primary">添加</button>
+      </div>
+    </section>
+
+    <section class="sdp-section" data-sdp-view="pool" hidden>
+      <h4>照片池</h4>
+      <p class="cdp-hint">AI 在合适的场景下会从这些照片里挑一张发出来。点「加图」选一批,可多次点击追加,点「上传全部」一并提交。上传后会自动生成场景描述,需要几秒。</p>
+      <div class="cdp-pool-upload">
+        <input type="file" id="sdp-pool-file" accept="image/*" multiple hidden />
+        <div class="cdp-pool-controls">
+          <button type="button" id="sdp-pool-add-btn" class="primary">➕ 加图</button>
+          <button type="button" id="sdp-pool-upload-btn" disabled>📤 上传全部 (<span id="sdp-pool-queue-count">0</span>)</button>
+          <button type="button" id="sdp-pool-clear-btn" disabled>清空</button>
+          <button type="button" id="sdp-pool-delete-all-btn" class="danger-btn" title="删除已入库的全部照片">🗑 删除全部</button>
+          <button type="button" id="sdp-pool-recaption-all-btn" class="primary" title="用 LM 重新生成所有图片的场景描述">🔄 重新描述</button>
+          <span id="sdp-pool-upload-status" class="cdp-pool-status"></span>
+        </div>
+        <ul id="sdp-pool-queue" class="cdp-pool-grid" hidden>
+          <li class="empty">还没有待上传的图片</li>
+        </ul>
+      </div>
+      <ul id="sdp-pool-list" class="cdp-pool-grid">
+        <li class="empty">还没有照片,先上传一张吧。</li>
+      </ul>
+    </section>
+
+    <section class="sdp-section" data-sdp-view="history" hidden>
+      <div class="cdp-history-toolbar">
+        <button type="button" id="sdp-hist-select-all" class="cdp-hist-btn">全选</button>
+        <button type="button" id="sdp-hist-delete-selected" class="cdp-hist-btn danger" disabled>删除所选</button>
+        <span id="sdp-hist-selected-count"></span>
+      </div>
+      <div id="sdp-history-list" class="cdp-history-list">
+        <div class="empty">加载中…</div>
+      </div>
+      <div class="cdp-history-pager">
+        <button type="button" id="sdp-hist-prev" class="cdp-hist-btn" disabled>上一页</button>
+        <span id="sdp-hist-page-info"></span>
+        <button type="button" id="sdp-hist-next" class="cdp-hist-btn" disabled>下一页</button>
+      </div>
+    </section>
+
+    <section class="sdp-section" data-sdp-view="advanced" hidden>
+      <h4 class="cdp-subhead">提示词</h4>
+      <label data-span="2">故事提示词 (story_prompt)<textarea name="story_prompt" rows="20" maxlength="8000"></textarea></label>
+      <label data-span="2">选项生成提示词 (story_choice_prompt)<textarea name="story_choice_prompt" rows="12" maxlength="8000"></textarea></label>
+    </section>
+    </form>
+  </div>
+
+  <footer class="cdp-footer">
+    <div id="sdp-form-error" class="cdp-error" hidden></div>
+    <div class="cdp-footer-row">
+      <button type="button" id="sdp-cancel">取消</button>
+      <button type="button" id="sdp-save" class="primary">保存</button>
+      <button type="button" id="sdp-chat" class="primary">开始故事 →</button>
+    </div>
+  </footer>
+</aside>
+
+<dialog id="story-create-modal" class="modal">
+  <h3>创建故事</h3>
+  <div class="story-template-section">
+    <label>从模板开始
+      <select id="sv2-template-select">
+        <option value="">— 空白故事 —</option>
+      </select>
+    </label>
+  </div>
+  <div class="story-create-form">
+    <label>故事标题<input id="sv2-new-title" type="text" placeholder="故事名称" maxlength="200" /></label>
+    <label>故事类型<input id="sv2-new-genre" type="text" placeholder="如：奇幻、悬疑、恋爱" maxlength="100" /></label>
+    <label>世界观设定<textarea id="sv2-new-world" rows="3" placeholder="故事发生的世界背景" maxlength="4000"></textarea></label>
+    <label>你的角色<input id="sv2-new-role" type="text" placeholder="用户在故事中扮演的角色" maxlength="2000" /></label>
+    <label>开场白<textarea id="sv2-new-opening" rows="2" placeholder="故事的开场描述" maxlength="4000"></textarea></label>
+  </div>
+  <form method="dialog" class="dialog-actions">
+    <button value="cancel">取消</button>
+    <button id="sv2-create-confirm" value="ok" class="primary">创建</button>
+  </form>
+</dialog>
+
+<dialog id="group-create-modal" class="modal">
+  <h3>创建群聊</h3>
+  <div class="group-create-form">
+    <label>群名<input id="gc-new-name" type="text" placeholder="群聊名称" maxlength="80" /></label>
+    <div class="group-create-hint">选择至少2个角色加入群聊</div>
+    <ul id="gc-char-list" class="gc-char-list"></ul>
+  </div>
+  <form method="dialog" class="dialog-actions">
+    <button value="cancel">取消</button>
+    <button id="gc-create-confirm" value="ok" class="primary">创建</button>
+  </form>
+</dialog>
+
+<aside id="settings-view" class="settings-view" hidden>
+  <header class="sv-header">
+    <div class="sv-title">设置 · 模型接口与密钥</div>
+  </header>
+  <div class="sv-body">
+    <form id="settings-form" autocomplete="off">
+      <fieldset class="settings-fieldset">
+        <legend>对话模型 (LLM)</legend>
+        <label>协议
+          <select name="llm_protocol">
+            <option value="anthropic">Anthropic (DeepSeek/MiniMax 网关)</option>
+            <option value="openai">OpenAI 兼容 (LM Studio/vLLM/Ollama)</option>
+          </select>
+        </label>
+        <label>接口地址 (Base URL)<input name="llm_base_url" type="text" placeholder="https://api.xxx.com/v1" /></label>
+        <label>API Key<input name="llm_api_key" type="password" autocomplete="new-password" placeholder="留空则不修改,当前已配置" /></label>
+        <label>模型名<input name="llm_model" type="text" placeholder="如 MiniMax-M3 / gpt-4o-mini" /></label>
+      </fieldset>
+      <fieldset class="settings-fieldset">
+        <legend>记忆检索 Embedding</legend>
+        <p class="settings-hint" id="settings-embed-hint"></p>
+        <label>接口地址 (Base URL)<input name="embedding_base_url" type="text" placeholder="https://api.xxx.com/v1" /></label>
+        <label>API Key<input name="embedding_api_key" type="password" autocomplete="new-password" placeholder="留空则不修改,当前已配置" /></label>
+        <label>模型名<input name="embedding_model" type="text" placeholder="如 text-embedding-3-small" /></label>
+      </fieldset>
+      <fieldset class="settings-fieldset">
+        <legend>语音合成 (TTS · MiniMax)</legend>
+        <label>接口地址 (Base URL)<input name="tts_base_url" type="text" placeholder="https://api.minimaxi.com/v1" /></label>
+        <label>API Key<input name="tts_api_key" type="password" autocomplete="new-password" placeholder="留空则不修改,当前已配置" /></label>
+        <label>模型名<input name="tts_model" type="text" placeholder="speech-02-hd" /></label>
+        <label>音色
+          <select name="tts_voice_id">
+            <option value="female-shaonv">少女</option>
+            <option value="female-yujie">御姐</option>
+            <option value="female-chengshu">成熟女性</option>
+            <option value="female-tianmei">甜美</option>
+            <option value="female-qingxue">清学</option>
+            <option value="female-meilijie">美丽姐</option>
+            <option value="male-qn-qingse">青涩男声</option>
+            <option value="male-qn-jingying">精英男声</option>
+            <option value="male-qn-badao">霸道男声</option>
+            <option value="male-qn-daxuesheng">大学生男声</option>
+            <option value="male-qn-lingdong">灵动男声</option>
+            <option value="male-qn-ningjing">宁静男声</option>
+          </select>
+        </label>
+      </fieldset>
+      <fieldset class="settings-fieldset">
+        <legend>图像生成 (MiniMax · 图片池无匹配时自动生成)</legend>
+        <label>接口地址 (Base URL)<input name="image_gen_base_url" type="text" placeholder="https://api.minimaxi.com" /></label>
+        <label>API Key<input name="image_gen_api_key" type="password" autocomplete="new-password" placeholder="留空则不修改,当前已配置" /></label>
+        <label>模型名<input name="image_gen_model" type="text" placeholder="image-01" /></label>
+      </fieldset>
+      <fieldset class="settings-fieldset">
+        <legend>每日新闻 (Tavily · AI 每日阅读新闻并记入长期记忆)</legend>
+        <label>API Key<input name="tavily_api_key" type="password" autocomplete="new-password" placeholder="留空则不修改,当前已配置" /></label>
+        <label>你的职业<input name="user_profession" type="text" placeholder="如：程序员、设计师、教师" /></label>
+        <label>你的爱好<input name="user_hobbies" type="text" placeholder="如：摄影、篮球、旅行" /></label>
+      </fieldset>
+      <fieldset class="settings-fieldset">
+        <legend>作息与睡眠</legend>
+        <label class="checkbox-row"><input name="sleep_enabled" type="checkbox" /> 启用作息（睡眠时段不回复，起床后补回）</label>
+        <label>入睡时间<input name="sleep_time" type="time" /></label>
+        <label>起床时间<input name="wake_time" type="time" /></label>
+      </fieldset>
+      <div class="sv-actions">
+        <button id="settings-cancel" type="button">取消</button>
+        <button id="settings-save" type="button" class="primary">保存</button>
+      </div>
+    </form>
+  </div>
+</aside>
+</div>
+
+<dialog id="chat-import-modal" class="modal">
+  <h3>导入聊天记录</h3>
+  <div id="chat-import-summary"></div>
+  <div id="chat-import-list"></div>
+  <form method="dialog" id="chat-import-form" class="dialog-actions">
+    <button value="cancel" type="submit">取消</button>
+  </form>
+</dialog>
+
+<dialog id="chat-confirm-modal" class="modal">
+  <h3>生成角色卡 + 写入记忆</h3>
+  <div id="chat-confirm-body"></div>
+  <form method="dialog" class="dialog-actions">
+    <button value="cancel">取消</button>
+    <button id="chat-confirm-ok" value="ok" class="primary">确认导入</button>
+  </form>
+</dialog>
+
+<div id="debug-ctx-modal" class="debug-ctx-modal" hidden>
+  <div class="debug-ctx-dialog">
+    <div class="debug-ctx-header">
+      <span>上下文调试信息</span>
+      <button type="button" id="debug-ctx-close">×</button>
+    </div>
+    <div id="debug-ctx-body" class="debug-ctx-body"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/app.js?v=20260920i" defer></script>
+{% endblock %}
