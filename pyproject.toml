@@ -1,0 +1,40 @@
+[project]
+name = "ai-girlfriend"
+version = "0.1.0"
+description = "Local AI girlfriend chat built on memU + OpenAI-compatible LLM."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
+    "itsdangerous>=2.2",
+    "python-multipart>=0.0.20",
+    "pillow>=10.4",
+    "httpx>=0.28",
+    "openai>=2.8",
+    "anthropic>=0.39",
+    "sentence-transformers>=3.0",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.6",
+    "memu-cli",
+]
+
+[tool.uv.sources]
+memu-cli = { path = "../" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
