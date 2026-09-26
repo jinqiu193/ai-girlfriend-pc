@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#6FB89E" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1A1816" media="(prefers-color-scheme: dark)" />
+  <title>{% block title %}AI Girlfriend{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%95%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/static/app.css?v=20260920i" />
+</head>
+<body>
+  {% block background %}{% endblock %}
+
+  {% block content %}{% endblock %}
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="lightbox" class="lightbox" role="dialog"><img alt="" /></div>
+
+  <script>window.APP = { uid: {{ user|tojson if user else 'null' }} };</script>
+  <script src="/static/icons.js" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
