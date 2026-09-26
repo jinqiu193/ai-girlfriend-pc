@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}登录 · AI Girlfriend{% endblock %}
+
+{% block background %}
+<div class="login-bg"></div>
+{% endblock %}
+
+{% block content %}
+<div class="login-card">
+  <div class="logo"><span data-i="heart" data-s="36"></span></div>
+  <h1>欢迎回来</h1>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  <form method="post" action="/login">
+    <label>用户名
+      <input name="username" placeholder="admin" autofocus autocomplete="username" required />
+    </label>
+    <label>密码
+      <input name="password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+    </label>
+    <button type="submit">进入 →</button>
+  </form>
+  <p class="hint">本地默认账户 <code>admin / changeme</code></p>
+</div>
+{% endblock %}
